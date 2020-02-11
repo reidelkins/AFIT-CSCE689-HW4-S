@@ -561,6 +561,7 @@ void TCPConn::connect(const char *ip_addr, unsigned short port) {
    if (!_connfd.connectTo(ip_addr, port))
       throw socket_error("TCP Connection failed!");
 
+   _connected = true;
 }
 
 // Same as above, but ip_addr and port are in network (big endian) format
@@ -571,6 +572,7 @@ void TCPConn::connect(unsigned long ip_addr, unsigned short port) {
    if (!_connfd.connectTo(ip_addr, port))
       throw socket_error("TCP Connection failed!");
 
+   _connected = true;
 }
 
 /**********************************************************************************************
@@ -597,6 +599,7 @@ void TCPConn::assignOutgoingData(std::vector<uint8_t> &data) {
  **********************************************************************************************/
 void TCPConn::disconnect() {
    _connfd.closeFD();
+   _connected = false;
 }
 
 
@@ -606,7 +609,8 @@ void TCPConn::disconnect() {
  *    Throws: runtime_error for unrecoverable issues
  **********************************************************************************************/
 bool TCPConn::isConnected() {
-   return _connfd.isOpen();
+   return _connected;
+   // return _connfd.isOpen(); // This does not work very well
 }
 
 /**********************************************************************************************
