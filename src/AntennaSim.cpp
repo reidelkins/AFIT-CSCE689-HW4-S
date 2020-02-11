@@ -72,6 +72,16 @@ void AntennaSim::simulate() {
    if (_verbosity >= 2) 
       std::cout << "SIM: Simulator time offset: " << _time_offset << " secs\n";
 
+   if (_verbosity >= 1)
+      std::cout << "SIM: Delaying 3 seconds before starting sim to let servers come online.\n";
+
+   // Provide a short 3 second delay before starting
+   for (unsigned int i=0; i<3; i++) {
+      if (_verbosity >= 2)
+         std::cout << i+1 << "\n";
+      sleep(1);
+   }
+
    // Initialize
    _start_time = time(NULL);
 

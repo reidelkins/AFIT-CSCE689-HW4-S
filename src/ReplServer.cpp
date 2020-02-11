@@ -89,6 +89,14 @@ void ReplServer::replicate() {
       // Check for new connections, process existing connections, and populate the queue as applicable
       _queue.handleQueue();     
 
+      // See if it's time to replicate and, if so, go through the database, identifying new plots
+      // that have not been replicated yet and adding them to the queue for replication
+      if (getAdjustedTime() - _last_repl > secs_between_repl) {
+
+         queueNewPlots();
+         _last_repl = getAdjustedTime();
+      }
+      
       // Check the queue for updates and pop them until the queue is empty. The pop command only returns
       // incoming replication information--outgoing replication in the queue gets turned into a TCPConn
       // object and automatically removed from the queue by pop
@@ -100,13 +108,6 @@ void ReplServer::replicate() {
          addReplDronePlots(data);         
       }       
 
-      // See if it's time to replicate and, if so, go through the database, identifying new plots
-      // that have not been replicated yet and adding them to the queue for replication
-      if (getAdjustedTime() - _last_repl > secs_between_repl) {
-         
-         queueNewPlots();
-         _last_repl = getAdjustedTime();
-      }
       usleep(1000);
    }   
 }
