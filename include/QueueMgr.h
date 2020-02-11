@@ -39,8 +39,6 @@ public:
    void sendToAll(std::vector<uint8_t> &data);
    void sendToServer(const char *server_id, std::vector<uint8_t> &data);
    
-   void sendfdasdfData(const char *sid, std::vector<uint8_t> &data);
-
    // Overload simply to remove this server from _server_list. Calls parent funct
    void bindSvr(const char *ip_addr, unsigned short port);
 
