@@ -206,7 +206,6 @@ void TCPServer::handleConnections() {
             // Remove them from the connect list
             tptr = _connlist.erase(tptr);
             std::cout << "Connection disconnected.\n";
-            tptr++;
             continue;
          }
          tptr++;
