@@ -1,0 +1,1 @@
+This directory is used to store autoconf macro files. It might have specialized scripts in it for some of the homeworks. 
