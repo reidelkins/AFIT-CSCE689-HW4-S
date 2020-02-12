@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
    // time_mult - speeds up the simulation by the multiplier (2.0 runs twice as fast)
    float time_mult = 1.0;
    int verbosity = 0;
-   int sim_time = 800; // Default 800 seconds
+   int sim_time = 900; // Default 900 seconds
    std::string ip_addr = "127.0.0.1";
    unsigned short port = 9999;
 
