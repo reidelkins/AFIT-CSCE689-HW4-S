@@ -201,6 +201,10 @@ void TCPConn::handleConnection() {
          case s_hasdata:
             break;
 
+         //CHANGE
+         //add any additional cases for added steps in the enumeration, create methods for those steps
+         //define those methods in the .h and put them in this file below
+
          default:
             throw std::runtime_error("Invalid connection status!");
             break;
