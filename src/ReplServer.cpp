@@ -120,7 +120,8 @@ void ReplServer::replicate() {
       int electedNode = 1;
       std::vector<time_t> skew(3, -16); //creates vector of size 3 with everything initialized to an impossible time for skew to be
       //first entry is diff between node 1 and 2, second entry is between node 1 and 3, third entry is between node 2 and 3
-
+      
+      //vector to hold
       for(auto i = _plotdb.begin(); i != _plotdb.end(); i++){
          for(auto j = std::next(_plotdb.begin(), 1); j != _plotdb.end(); j++){
             //can't do this because it won't get rid of all replicates
@@ -129,42 +130,42 @@ void ReplServer::replicate() {
             //also this will delete any duplicates even after the skews are found
             if (i->latitude == j->latitude && i->longitude == j->longitude)  {
                if(i->node_id == j->node_id) {
-                  del_data.push_back(j);
+                  _plotdb.erase(j);
                } else {
                   if(i->node_id == electedNode) {
                      if(j->node_id == 2) {
                         if(skew.at(0) == -16) {
                            skew.at(0) = i->timestamp - j->timestamp;
                         }
-                        del_data.push_back(j);
-                     } else // j node == 3 {
+                        _plotdb.erase(j);
+                     } else {// j node == 3 
                         if(skew.at(1) == -16) {
                            skew.at(1) = i->timestamp - j->timestamp;
                         }
-                        del_data.push_back(j);
+                        _plotdb.erase(j);
                      }
                   } else if (j->node_id == electedNode) {
                      if(i->node_id == 2) {
                         if(skew.at(0) == -16) {
                            skew.at(0) = j->timestamp - i->timestamp;
                         }
-                        del_data.push_back(i);
-                     } else // i node == 3 {
+                        _plotdb.erase(i);
+                     } else {// i node == 3 
                         if(skew.at(1) == -16) {
                            skew.at(1) = j->timestamp - i->timestamp;
                         }
-                        del_data.push_back(i);
+                        _plotdb.erase(i);
                      }
                   } else if (i->node_id == 2) {//this means j node is 3
                      if(skew.at(2) == -16) {
                         skew.at(2) = i->timestamp - j->timestamp;
                      }
-                     del_data.push_back(j);
+                     _plotdb.erase(j);
                   } else { // j == 2 and i == 3
                      if(skew.at(0) == -16) {
                            skew.at(0) = j->timestamp - i->timestamp;
                      }
-                     del_data.push_back(j);
+                     _plotdb.erase(j);;
                   }
                }
             }
@@ -183,11 +184,6 @@ void ReplServer::replicate() {
             i->timestamp -= skew.at(i->node_id);
          }
       }
-      for(auto data : del_data) {
-            _plotdb.erase(data);
-      }
-
-      del_data.clear();
    
       usleep(1000);
    }   

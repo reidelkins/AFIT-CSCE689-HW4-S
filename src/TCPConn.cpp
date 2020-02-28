@@ -13,6 +13,8 @@
 #include <crypto++/rijndael.h>
 #include <crypto++/gcm.h>
 #include <crypto++/aes.h>
+#include <stdlib.h>
+#include <cmath>
 
 using namespace CryptoPP;
 
@@ -165,14 +167,13 @@ void TCPConn::encryptData(std::vector<uint8_t> &buf) {
  *
  **********************************************************************************************/
 
-void TCPConn::sendChallenge(std::vector<uint8_t> &buf) {
+void TCPConn::sendChallenge() {
    //create a random number of auth_size
-   int rand = rand() % (9 * pow(10, auth_size)) + pow(10, auth_size);
-   _authstr = std::to_string(rand);
+   genRandString(_authstr, auth_size);
 
    std::vector<uint8_t> buf(_authstr.begin(), _authstr.end());
    wrapCmd(buf, c_auth, c_endauth);
-   sendData(_authstr);
+   sendData(buf);
    if(_status == challengingServer)
       _status = waitServerResponse;
 }
@@ -185,8 +186,8 @@ void TCPConn::sendChallenge(std::vector<uint8_t> &buf) {
  *    Throws: runtime_error for unrecoverable errors
  **********************************************************************************************/
 
-void TCPConn::waitForChallenge(std::vector<uint8_t> &buf) {
-    if (_connfd.hasData()) {
+void TCPConn::waitForChallenge() {
+   if (_connfd.hasData()) {
       std::vector<uint8_t> buf;
 
       if (!getData(buf))
@@ -205,8 +206,9 @@ void TCPConn::waitForChallenge(std::vector<uint8_t> &buf) {
       if(_status == waitServerChallenge)
          _status = challengingServer;
 
-      if(status == waitClientChallenge)
+      if(_status == waitClientChallenge)
          _status = s_datarx;
+   }
 }
 
 /**********************************************************************************************
@@ -215,14 +217,15 @@ void TCPConn::waitForChallenge(std::vector<uint8_t> &buf) {
  *    Throws: runtime_error for unrecoverable errors
  **********************************************************************************************/
 
-void TCPConn::waitForResponse(std::vector<uint8_t> &buf) {
-    if (_connfd.hasData()) {
+void TCPConn::waitForResponse() {
+   if (_connfd.hasData()) {
       std::vector<uint8_t> buf;
 
-      if(!getEncryptedData())
+      if(!getEncryptedData(buf))
          return;
 
-      if(buf !=  _authstr) {
+      std::vector<uint8_t> compAuth(_authstr.begin(), _authstr.end());
+      if(buf !=  compAuth) {
          //failed challenge, log this and disconnect
          std::stringstream msg;
          msg << "Challenge response failed from " << getNodeID() << "\n";
@@ -238,6 +241,7 @@ void TCPConn::waitForResponse(std::vector<uint8_t> &buf) {
       //client verified server
       if(_status == waitServerResponse)
          transmitData();
+   }
 
        
 }

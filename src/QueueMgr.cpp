@@ -301,6 +301,7 @@ void QueueMgr::launchDataConn(const char *sid, std::vector<uint8_t> &data) {
       new_conn->connect(ip_addr, port);
    } catch (socket_error &e) {
       std::stringstream msg;
+      std::cout << "fajdl;kfjasdl;kfja;sdlkfja;ldfjas;dlfj\n";
       msg << "Connect to SID " << sid << " failed when trying to send data. Retrying. Msg: " <<
                         e.what();
       _server_log.writeLog(msg.str().c_str());
