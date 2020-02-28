@@ -23,10 +23,11 @@ ReplServer::ReplServer(DronePlotDB &plotdb, float time_mult)
                                _ip_addr("127.0.0.1"),
                                _port(9999)
 {
+   _start_time = time(NULL);
 }
 
-ReplServer::ReplServer(DronePlotDB &plotdb, const char *ip_addr, unsigned short port, float time_mult,
-                                          unsigned int verbosity)
+ReplServer::ReplServer(DronePlotDB &plotdb, const char *ip_addr, unsigned short port, int offset, 
+                        float time_mult, unsigned int verbosity)
                                  :_queue(verbosity),
                                   _plotdb(plotdb),
                                   _shutdown(false), 
@@ -36,6 +37,7 @@ ReplServer::ReplServer(DronePlotDB &plotdb, const char *ip_addr, unsigned short 
                                   _port(port)
 
 {
+   _start_time = time(NULL) + offset;
 }
 
 ReplServer::~ReplServer() {
@@ -48,9 +50,10 @@ ReplServer::~ReplServer() {
  *                   by _time_mult to speed up or slow down
  **********************************************************************************************/
 
-double ReplServer::getAdjustedTime() {
-   return static_cast<time_t>(time(nullptr) - _start_time) * _time_mult;
+time_t ReplServer::getAdjustedTime() {
+   return static_cast<time_t>((time(NULL) - _start_time) * _time_mult);
 }
+
 /**********************************************************************************************
  * replicate - the main function managing replication activities. Manages the QueueMgr and reads
  *             from the queue, deconflicting entries and populating the DronePlotDB object with
@@ -71,7 +74,6 @@ void ReplServer::replicate(const char *ip_addr, unsigned short port) {
 void ReplServer::replicate() {
 
    // Track when we started the server
-   _start_time = time(NULL);
    _last_repl = 0;
 
    // Set up our queue's listening socket
@@ -105,13 +107,18 @@ void ReplServer::replicate() {
 
          // Incoming replication--add it to this server's local database
          addReplDronePlots(data);         
-      }       
+      }
 
       //CHANGE
+
       //Check for skews and replicates in database
+
       _plotdb.sortByTime();
 
+
+
       
+
       //get main node
       //any other nodes should go off the main node
       //find place where main node matches with another node, get time difference, for all enteries in the non main node, adjust time. Find place where other node
@@ -125,10 +132,10 @@ void ReplServer::replicate() {
       if(_plotdb.size() > 1) {
          for(auto i = _plotdb.begin(); i != _plotdb.end(); i++){
             for(auto j = std::next(_plotdb.begin(), 1); j != _plotdb.end(); j++){
-               //can't do this because it won't get rid of all replicates
-               //if(skewsFound != 2) {
-               //if two entries have same location but were seen by different nodes, we can find the skew between those nodes
-               //also this will delete any duplicates even after the skews are found
+         //       //can't do this because it won't get rid of all replicates
+         //       //if(skewsFound != 2) {
+         //       //if two entries have same location but were seen by different nodes, we can find the skew between those nodes
+         //       //also this will delete any duplicates even after the skews are found
                if (i->latitude == j->latitude && i->longitude == j->longitude)  {
                   if(i->node_id == j->node_id) {
                      //_plotdb.erase(j);
@@ -189,11 +196,10 @@ void ReplServer::replicate() {
          //adjusts time for any entries not made by elected node given the found skews
          for(auto i = _plotdb.begin(); i != _plotdb.end(); i++){
             if(!i->isFlagSet(DBFLAG_UNSKEW)) {
-               i->timestamp -= skew.at(i->node_id);
+               i->timestamp -= skew.at(i->node_id-1);
             }
          }
-      }
-   
+      }       
       usleep(1000);
    }   
 }

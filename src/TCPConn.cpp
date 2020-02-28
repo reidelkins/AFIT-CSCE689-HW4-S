@@ -171,6 +171,7 @@ void TCPConn::sendChallenge() {
    //create a random number of auth_size
    genRandString(_authstr, auth_size);
 
+   buf.clear();
    std::vector<uint8_t> buf(_authstr.begin(), _authstr.end());
    wrapCmd(buf, c_auth, c_endauth);
    sendData(buf);
@@ -261,36 +262,44 @@ void TCPConn::handleConnection() {
          // Client: Just connected, send our SID
          case s_connecting:
             sendSID();
+            std::cout << "connecting\n";
             break;
 
          // Server: Wait for the SID from a newly-connected client, then send our challenge string
          case s_connected:
             waitForSID();
+            std::cout << "connected\n";
             break;
 
          //Client: Wait for challenge string, encrypt and send encrypted string back
          case waitServerChallenge:
             waitForChallenge();
+            std::cout << "1\n";
             break;
 
          //Server: Wait for encrypted challenge string, decrypt it and compare it, send ACK back
          case waitClientResponse:
             waitForResponse();
+            std::cout << "2\n";
             break;
 
          //Client: Send own challenge string
          case challengingServer:
             sendChallenge();
+            std::cout << "3\n";
             break;
 
          //Server: Wait for challenge string, encrypt and send encrypted string back
          case waitClientChallenge:
+            std::cout << "yo\n";
             waitForChallenge();
+            std::cout << "4\n";
             break;
 
          //Client: Wait for encrypted challenge string, decrypt it and compare it, send data back if good
          case waitServerResponse:
             waitForResponse();
+            std::cout << "5\n";
             break;
 
       //transmitData now called in waitForResponse when the status is waitServerResponse
@@ -302,15 +311,18 @@ void TCPConn::handleConnection() {
          // Server: Receive data from the client
          case s_datarx:
             waitForData();
+            std::cout << "6\n";
             break;
    
          // Client: Wait for acknowledgement that data sent was received before disconnecting
          case s_waitack:
             awaitAck();
+            std::cout << "7\n";
             break;
          
          // Server: Data received and conn disconnected, but waiting for the data to be retrieved
          case s_hasdata:
+            std::cout << "8\n";
             break;
 
          default:

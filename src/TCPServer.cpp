@@ -184,7 +184,6 @@ void TCPServer::handleConnections() {
             try {
                (*tptr)->connect(ip_addr, port);
             } catch (socket_error &e) {
-               std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
                std::stringstream msg;
                msg << "Connect to SID " << (*tptr)->getNodeID() << 
                         " failed when trying to send data. Msg: " << e.what();
