@@ -161,6 +161,88 @@ void TCPConn::encryptData(std::vector<uint8_t> &buf) {
 }
 
 /**********************************************************************************************
+ * sendChallenge - creates a random number string of auth_size to be encrypted then decrypted
+ *
+ **********************************************************************************************/
+
+void TCPConn::sendChallenge(std::vector<uint8_t> &buf) {
+   //create a random number of auth_size
+   int rand = rand() % (9 * pow(10, auth_size)) + pow(10, auth_size);
+   _authstr = std::to_string(rand);
+
+   std::vector<uint8_t> buf(_authstr.begin(), _authstr.end());
+   wrapCmd(buf, c_auth, c_endauth);
+   sendData(_authstr);
+   if(_status == challengingServer)
+      _status = waitServerResponse;
+}
+
+/**********************************************************************************************
+ * waitForChallenge - receive challenge string, encrypt it, and send back encrypted version
+ *
+ *    Params:  msg - the challenge string that is recieved
+ *
+ *    Throws: runtime_error for unrecoverable errors
+ **********************************************************************************************/
+
+void TCPConn::waitForChallenge(std::vector<uint8_t> &buf) {
+    if (_connfd.hasData()) {
+      std::vector<uint8_t> buf;
+
+      if (!getData(buf))
+         return;
+
+      if (!getCmdData(buf, c_auth, c_endauth)) {
+         std::stringstream msg;
+         msg << "Challenge string possibly corrupted from" << getNodeID() << "\n";
+         _server_log.writeLog(msg.str().c_str());
+         disconnect();
+         return;
+      }
+
+      //calls method which encrypts data then sends it
+      sendEncryptedData(buf);
+      if(_status == waitServerChallenge)
+         _status = challengingServer;
+
+      if(status == waitClientChallenge)
+         _status = s_datarx;
+}
+
+/**********************************************************************************************
+ * checkChallengeResponse - receive encrypted string, decrypts it and check against _authstr
+ *
+ *    Throws: runtime_error for unrecoverable errors
+ **********************************************************************************************/
+
+void TCPConn::waitForResponse(std::vector<uint8_t> &buf) {
+    if (_connfd.hasData()) {
+      std::vector<uint8_t> buf;
+
+      if(!getEncryptedData())
+         return;
+
+      if(buf !=  _authstr) {
+         //failed challenge, log this and disconnect
+         std::stringstream msg;
+         msg << "Challenge response failed from " << getNodeID() << "\n";
+         _server_log.writeLog(msg.str().c_str());
+         disconnect();
+         return;
+      }
+      
+      //server verified client
+      if(_status == waitClientResponse)
+         _status = waitClientChallenge;
+
+      //client verified server
+      if(_status == waitServerResponse)
+         transmitData();
+
+       
+}
+
+/**********************************************************************************************
  * handleConnection - performs a check of the connection, looking for data on the socket and
  *                    handling it based on the _status, or stage, of the connection
  *
@@ -177,15 +259,41 @@ void TCPConn::handleConnection() {
             sendSID();
             break;
 
-         // Server: Wait for the SID from a newly-connected client, then send our SID
+         // Server: Wait for the SID from a newly-connected client, then send our challenge string
          case s_connected:
             waitForSID();
             break;
-   
-         // Client: connecting user - replicate data
-         case s_datatx:
-            transmitData();
+
+         //Client: Wait for challenge string, encrypt and send encrypted string back
+         case waitServerChallenge:
+            waitForChallenge();
             break;
+
+         //Server: Wait for encrypted challenge string, decrypt it and compare it, send ACK back
+         case waitClientResponse:
+            waitForResponse();
+            break;
+
+         //Client: Send own challenge string
+         case challengingServer:
+            sendChallenge();
+            break;
+
+         //Server: Wait for challenge string, encrypt and send encrypted string back
+         case waitClientChallenge:
+            waitForChallenge();
+            break;
+
+         //Client: Wait for encrypted challenge string, decrypt it and compare it, send data back if good
+         case waitServerResponse:
+            waitForResponse();
+            break;
+
+      //transmitData now called in waitForResponse when the status is waitServerResponse
+         // Client: connecting user - replicate data
+         // case s_datatx:
+         //    transmitData();
+         //    break;
 
          // Server: Receive data from the client
          case s_datarx:
@@ -200,10 +308,6 @@ void TCPConn::handleConnection() {
          // Server: Data received and conn disconnected, but waiting for the data to be retrieved
          case s_hasdata:
             break;
-
-         //CHANGE
-         //add any additional cases for added steps in the enumeration, create methods for those steps
-         //define those methods in the .h and put them in this file below
 
          default:
             throw std::runtime_error("Invalid connection status!");
@@ -228,11 +332,11 @@ void TCPConn::sendSID() {
    wrapCmd(buf, c_sid, c_endsid);
    sendData(buf);
 
-   _status = s_datatx; 
+   _status = waitServerChallenge; 
 }
 
 /**********************************************************************************************
- * waitForSID()  - receives the SID and sends our SID
+ * waitForSID()  - receives the SID and sends a challenge string
  *
  *    Throws: socket_error for network issues, runtime_error for unrecoverable issues
  **********************************************************************************************/
@@ -257,12 +361,16 @@ void TCPConn::waitForSID() {
       std::string node(buf.begin(), buf.end());
       setNodeID(node.c_str());
 
-      // Send our Node ID
-      buf.assign(_svr_id.begin(), _svr_id.end());
-      wrapCmd(buf, c_sid, c_endsid);
-      sendData(buf);
+      // // Send our Node ID
+      // buf.assign(_svr_id.begin(), _svr_id.end());
+      // wrapCmd(buf, c_sid, c_endsid);
+      // sendData(buf);
 
-      _status = s_datarx;
+      // _status = s_datarx;
+
+      //send challenge string
+      sendChallenge();
+      _status = waitClientResponse;
    }
 }
 
@@ -295,6 +403,7 @@ void TCPConn::transmitData() {
 
       // Send the replication data
       sendData(_outputbuf);
+      //CHANGE what is outputbuf
 
       if (_verbosity >= 3)
          std::cout << "Successfully authenticated connection with " << getNodeID() <<
