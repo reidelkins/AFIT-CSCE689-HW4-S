@@ -85,6 +85,7 @@ void ReplServer::replicate() {
 
   
    // Replicate until we get the shutdown signal
+   int tmpSize = _plotdb.size();
    while (!_shutdown) {
 
       // Check for new connections, process existing connections, and populate the queue as applicable
@@ -109,14 +110,8 @@ void ReplServer::replicate() {
          addReplDronePlots(data);         
       }
 
-      //CHANGE
 
       //Check for skews and replicates in database
-
-      _plotdb.sortByTime();
-
-
-
       
 
       //get main node
@@ -130,76 +125,95 @@ void ReplServer::replicate() {
       //vector to store items to be deleted after iterating through it here
       std::vector<std::list<DronePlot>::iterator> dups;
       if(_plotdb.size() > 1) {
-         for(auto i = _plotdb.begin(); i != _plotdb.end(); i++){
-            for(auto j = std::next(_plotdb.begin(), 1); j != _plotdb.end(); j++){
-         //       //can't do this because it won't get rid of all replicates
-         //       //if(skewsFound != 2) {
-         //       //if two entries have same location but were seen by different nodes, we can find the skew between those nodes
-         //       //also this will delete any duplicates even after the skews are found
-               if (i->latitude == j->latitude && i->longitude == j->longitude)  {
-                  if(i->node_id == j->node_id) {
-                     //_plotdb.erase(j);
-                     dups.push_back(j);
-                  } else {
-                     if(i->node_id == electedNode) {
-                        if(j->node_id == 2) {
-                           if(skew.at(0) == -16) {
-                              skew.at(0) = i->timestamp - j->timestamp;
+         _plotdb.sortByTime();
+         //tmp size keeps track of size of db after last time
+         //it looked for replications so only needs to look again
+         //if size of database has increased. i.e. new plots have been added
+         if(tmpSize != _plotdb.size()) {
+            //std::cout << "size: " << _plotdb.size() << "\n";
+            tmpSize = _plotdb.size();
+            auto i = _plotdb.begin();
+            auto end = _plotdb.end();
+            end--;
+            //i and j are two rows in the database, if they are not the same row
+            //but are replicates, then remove one of them
+            while(i != end) {
+               auto j = _plotdb.begin();
+               j++;
+               while(j != _plotdb.end()) {
+                  if( j != i) {
+                     if (i->latitude == j->latitude && i->longitude == j->longitude && i->drone_id == j->drone_id && i->node_id != j->node_id)  {
+                        //time difference can be up to six second difference(one can be -3 from actual time and other can be +3)
+                        if(abs(i->timestamp - j->timestamp) < 7){
+                           //adding skews
+                           if(i->node_id == electedNode) {
+                              if(j->node_id == 2) {
+                                 if(skew.at(0) == -16) {
+                                    skew.at(0) = i->timestamp - j->timestamp;
+                                 }
+                              } else {// j node == 3 
+                                 if(skew.at(1) == -16) {
+                                    skew.at(1) = i->timestamp - j->timestamp;
+                                 }
+                              }
+                           } else if (j->node_id == electedNode) {
+                              if(i->node_id == 2) {
+                                 if(skew.at(0) == -16) {
+                                    skew.at(0) = j->timestamp - i->timestamp;
+                                 }
+                              } else {// i node == 3 
+                                 if(skew.at(1) == -16) {
+                                    skew.at(1) = j->timestamp - i->timestamp;
+                                 }
+                              }
+                           } else if (i->node_id == 2) {//this means j node is 3
+                              if(skew.at(2) == -16) {
+                                 skew.at(2) = i->timestamp - j->timestamp;
+                              }
+                           } else { // j == 2 and i == 3
+                              if(skew.at(0) == -16) {
+                                    skew.at(0) = j->timestamp - i->timestamp;
+                              }
                            }
-                           dups.push_back(j);
-                        } else {// j node == 3 
-                           if(skew.at(1) == -16) {
-                              skew.at(1) = i->timestamp - j->timestamp;
-                           }
-                           dups.push_back(j);
-                        }
-                     } else if (j->node_id == electedNode) {
-                        if(i->node_id == 2) {
-                           if(skew.at(0) == -16) {
-                              skew.at(0) = j->timestamp - i->timestamp;
-                           }
-                           dups.push_back(i);
-                        } else {// i node == 3 
-                           if(skew.at(1) == -16) {
-                              skew.at(1) = j->timestamp - i->timestamp;
-                           }
-                           dups.push_back(i);
-                        }
-                     } else if (i->node_id == 2) {//this means j node is 3
-                        if(skew.at(2) == -16) {
-                           skew.at(2) = i->timestamp - j->timestamp;
-                        }
-                        dups.push_back(j);
-                     } else { // j == 2 and i == 3
-                        if(skew.at(0) == -16) {
-                              skew.at(0) = j->timestamp - i->timestamp;
-                        }
-                        dups.push_back(j);;
+                           // std::cout << "found a replication\n";
+                           // std::cout << "\nnode: " << i->node_id << ", drone: " << i->drone_id << ", " << i->latitude << ",  " << i->longitude << "   time:  " << i->timestamp;
+                           // std::cout << "\nnode: " << j->node_id << ", drone: " << j->drone_id << ", " << j->latitude << ",  " << j->longitude << "   time:  " << j->timestamp;
+                           // std::cout << "-------------------------------------\n";
+                           // std::cout << "before erase size: " << _plotdb.size();
+                           _plotdb.erase(j);
+                           // std::cout << "\nafter erase size: " << _plotdb.size() << "\n";
+                           //reset j to the beginning of the list
+                              //I tried setting it to where i is but I would get errors
+                           j = _plotdb.begin();
+                           j++;
+                           //adjust tmpSize since changed database
+                           tmpSize = _plotdb.size();
+                        }  
                      }
                   }
+                  j++;
+               }
+               i++;
+            }
+            
+            //if skews for elected node to second node or elected node to third node not
+            //filled in, fill them in. Will only need to do one of the two
+            if(skew.at(0) == -16)  {
+               skew.at(0) = skew.at(1) - skew.at(2);
+            }
+            if(skew.at(1) == -16) {
+               skew.at(1) = skew.at(2) + skew.at(0);
+            }
+            //adjusts time for any entries not made by elected node given the found skews
+            for(auto i = _plotdb.begin(); i != _plotdb.end(); i++){
+               if(!i->isFlagSet(DBFLAG_UNSKEW)) {
+                  i->timestamp -= skew.at(i->node_id-1);
                }
             }
          }
-      
 
-         for(auto dup : dups) {
-            _plotdb.erase(dup);
-         }
-         dups.clear();
-         //fill in skew value between elected Node and other nodes if not found yet
-         if(skew.at(0) == -16)  {
-            skew.at(0) = skew.at(1) - skew.at(2);
-         }
-         if(skew.at(1) == -16) {
-            skew.at(1) = skew.at(2) + skew.at(0);
-         }
-         //adjusts time for any entries not made by elected node given the found skews
-         for(auto i = _plotdb.begin(); i != _plotdb.end(); i++){
-            if(!i->isFlagSet(DBFLAG_UNSKEW)) {
-               i->timestamp -= skew.at(i->node_id-1);
-            }
-         }
       }       
+
       usleep(1000);
    }   
 }

@@ -57,7 +57,7 @@ void AntennaSim::loadSourceDB(const char *filename) {
 }
 
 double AntennaSim::getAdjustedTime() {
-   return static_cast<time_t>(((double) time(NULL) - (double) _start_time) * _time_mult);
+   return static_cast<time_t>(time(NULL) - _start_time) * _time_mult;
 }
 
 /*****************************************************************************************
@@ -82,7 +82,6 @@ void AntennaSim::simulate() {
 
    if (_verbosity >= 2) 
       std::cout << "SIM: Simulator time offset: " << _time_offset << " secs\n";
-
    if (_verbosity >= 1)
       std::cout << "SIM: Delaying 3 seconds before starting sim to let servers come online.\n";
 
@@ -145,7 +144,6 @@ void AntennaSim::simulate() {
          diter = _to_db.end();
          diter--;
          diter->setFlags(DBFLAG_NEW);
-
          _source_db.popFront();
          diter = _source_db.begin();
       }

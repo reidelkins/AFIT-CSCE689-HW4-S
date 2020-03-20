@@ -427,7 +427,6 @@ void DronePlotDB::popFront() {
 void DronePlotDB::erase(unsigned int i) {
    // First lock the mutex (blocking)
    pthread_mutex_lock(&_mutex);
-
    if (i > _dbdata.size())
       throw std::runtime_error("erase function called with index out of scope for std::list.");
 
@@ -498,5 +497,4 @@ void DronePlotDB::sortByTime() {
 void DronePlotDB::clear() {
    _dbdata.clear();
 }
-
 

@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 
    // ****** Initialization variables ******
    // time_mult - speeds up the simulation by the multiplier (2.0 runs twice as fast)
-   float time_mult = 1.0;
+   float time_mult = 2.0;
    unsigned int verbosity = 0;
    int sim_time = 900; // Default 900 seconds
    std::string ip_addr = "127.0.0.1";
@@ -173,8 +173,7 @@ int main(int argc, char *argv[]) {
       throw std::runtime_error("Unable to create simulator thread");
 
    // Start the replication server
-   ReplServer repl_server(db, ip_addr.c_str(), port, sim.getOffset(), time_mult, verbosity);
-    
+   ReplServer repl_server(db, ip_addr.c_str(), port, sim.getOffset(), time_mult, verbosity); 
 
    pthread_t replthread;
    if (pthread_create(&replthread, NULL, t_replserver, (void *) &repl_server) != 0)
